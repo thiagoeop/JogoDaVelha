@@ -1,4 +1,3 @@
-# JogoDaVelha
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -206,3 +205,315 @@
                         <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full" id="mobile-x-wins-count">0</span>
                     </div>
                     
+                    <div class="ranking-item flex items-center justify-between bg-pink-50 p-3 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center mr-2">
+                                <i class="far fa-circle text-pink-500 text-sm"></i>
+                            </div>
+                            <span class="font-medium">Jogador O</span>
+                        </div>
+                        <span class="bg-pink-100 text-pink-800 text-xs font-semibold px-2.5 py-0.5 rounded-full" id="mobile-o-wins-count">0</span>
+                    </div>
+                    
+                    <div class="ranking-item flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                                <i class="fas fa-handshake text-gray-600 text-sm"></i>
+                            </div>
+                            <span class="font-medium">Empates</span>
+                        </div>
+                        <span class="bg-gray-200 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded-full" id="mobile-draws-count">0</span>
+                    </div>
+                </div>
+                
+                <div class="flex justify-center space-x-3">
+                    <button id="reset-stats-modal-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
+                        <i class="fas fa-trash-alt mr-2"></i> Limpar
+                    </button>
+                    <button id="close-stats-modal-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                        <i class="fas fa-times mr-2"></i> Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Game state
+            let board = ['', '', '', '', '', '', '', '', ''];
+            let currentPlayer = 'X';
+            let gameActive = true;
+            let darkMode = false;
+            
+            // Statistics
+            let stats = {
+                xWins: 0,
+                oWins: 0,
+                draws: 0
+            };
+            
+            // Load stats from localStorage if available
+            if (localStorage.getItem('ticTacToeStats')) {
+                stats = JSON.parse(localStorage.getItem('ticTacToeStats'));
+                updateStatsUI();
+            }
+            
+            // DOM elements
+            const boardElement = document.querySelector('.grid');
+            const currentPlayerElement = document.getElementById('current-player');
+            const resetButton = document.getElementById('reset-btn');
+            const themeButton = document.getElementById('theme-btn');
+            const statsButton = document.getElementById('stats-btn');
+            const statsSidebar = document.getElementById('stats-sidebar');
+            const winnerModal = document.getElementById('winner-modal');
+            const winnerText = document.getElementById('winner-text');
+            const winnerMessage = document.getElementById('winner-message');
+            const winnerIcon = document.getElementById('winner-icon');
+            const playAgainButton = document.getElementById('play-again-btn');
+            const closeModalButton = document.getElementById('close-modal-btn');
+            const resetStatsButton = document.getElementById('reset-stats-btn');
+            const mobileStatsModal = document.getElementById('mobile-stats-modal');
+            const closeStatsModalButton = document.getElementById('close-stats-modal-btn');
+            const resetStatsModalButton = document.getElementById('reset-stats-modal-btn');
+            
+            // Winning combinations
+            const winningConditions = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+                [0, 4, 8], [2, 4, 6]             // diagonals
+            ];
+            
+            // Initialize the game board
+            function initializeBoard() {
+                boardElement.innerHTML = '';
+                
+                for (let i = 0; i < 9; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell bg-white rounded-lg shadow-md h-24 flex items-center justify-center cursor-pointer text-4xl font-bold transition';
+                    cell.dataset.index = i;
+                    cell.addEventListener('click', () => handleCellClick(i));
+                    boardElement.appendChild(cell);
+                }
+            }
+            
+            // Handle cell click
+            function handleCellClick(index) {
+                if (!gameActive || board[index] !== '') return;
+                
+                board[index] = currentPlayer;
+                updateBoard();
+                
+                if (checkWin()) {
+                    handleWin();
+                    return;
+                }
+                
+                if (checkDraw()) {
+                    handleDraw();
+                    return;
+                }
+                
+                switchPlayer();
+            }
+            
+            // Update the board UI
+            function updateBoard() {
+                const cells = document.querySelectorAll('.cell');
+                
+                cells.forEach((cell, index) => {
+                    if (board[index] !== '') {
+                        cell.innerHTML = board[index] === 'X' 
+                            ? '<i class="fas fa-times text-blue-600"></i>' 
+                            : '<i class="far fa-circle text-pink-500"></i>';
+                        cell.classList.add('pointer-events-none');
+                    } else {
+                        cell.innerHTML = '';
+                        cell.classList.remove('pointer-events-none');
+                    }
+                });
+            }
+            
+            // Switch player
+            function switchPlayer() {
+                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                currentPlayerElement.textContent = currentPlayer;
+                currentPlayerElement.className = currentPlayer === 'X' ? 'text-blue-600' : 'text-pink-500';
+            }
+            
+            // Check for win
+            function checkWin() {
+                return winningConditions.some(condition => {
+                    return condition.every(index => {
+                        return board[index] === currentPlayer;
+                    });
+                });
+            }
+            
+            // Check for draw
+            function checkDraw() {
+                return board.every(cell => cell !== '');
+            }
+            
+            // Handle win
+            function handleWin() {
+                gameActive = false;
+                
+                // Update statistics
+                if (currentPlayer === 'X') {
+                    stats.xWins++;
+                } else {
+                    stats.oWins++;
+                }
+                saveStats();
+                updateStatsUI();
+                
+                // Highlight winning cells
+                const winningCombination = winningConditions.find(condition => {
+                    return condition.every(index => {
+                        return board[index] === currentPlayer;
+                    });
+                });
+                
+                winningCombination.forEach(index => {
+                    document.querySelector(`.cell[data-index="${index}"]`).classList.add('winning-cell');
+                });
+                
+                // Show winner modal
+                winnerText.textContent = `Vitória do ${currentPlayer}!`;
+                winnerMessage.textContent = `Parabéns, jogador ${currentPlayer} venceu!`;
+                
+                if (currentPlayer === 'X') {
+                    winnerIcon.className = 'fas fa-times text-blue-600 text-2xl';
+                } else {
+                    winnerIcon.className = 'far fa-circle text-pink-500 text-2xl';
+                }
+                
+                winnerModal.classList.remove('hidden');
+            }
+            
+            // Handle draw
+            function handleDraw() {
+                gameActive = false;
+                stats.draws++;
+                saveStats();
+                updateStatsUI();
+                
+                // Show draw modal
+                winnerText.textContent = 'Empate!';
+                winnerMessage.textContent = 'Ninguém venceu desta vez. Tente novamente!';
+                winnerIcon.className = 'fas fa-handshake text-gray-500 text-2xl';
+                
+                winnerModal.classList.remove('hidden');
+            }
+            
+            // Reset game
+            function resetGame() {
+                board = ['', '', '', '', '', '', '', '', ''];
+                currentPlayer = 'X';
+                gameActive = true;
+                
+                currentPlayerElement.textContent = currentPlayer;
+                currentPlayerElement.className = 'text-blue-600';
+                
+                // Remove winning cell highlights
+                document.querySelectorAll('.cell').forEach(cell => {
+                    cell.classList.remove('winning-cell');
+                });
+                
+                updateBoard();
+            }
+            
+            // Toggle dark mode
+            function toggleDarkMode() {
+                darkMode = !darkMode;
+                
+                if (darkMode) {
+                    document.body.classList.remove('bg-gradient-to-br', 'from-blue-50', 'to-purple-50');
+                    document.body.classList.add('bg-gray-900');
+                    themeButton.innerHTML = '<i class="fas fa-sun mr-2"></i> Tema Claro';
+                    themeButton.classList.remove('bg-gray-800', 'hover:bg-gray-700');
+                    themeButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                } else {
+                    document.body.classList.add('bg-gradient-to-br', 'from-blue-50', 'to-purple-50');
+                    document.body.classList.remove('bg-gray-900');
+                    themeButton.innerHTML = '<i class="fas fa-moon mr-2"></i> Tema Escuro';
+                    themeButton.classList.add('bg-gray-800', 'hover:bg-gray-700');
+                    themeButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                }
+            }
+            
+            // Toggle stats sidebar
+            function toggleStatsSidebar() {
+                if (window.innerWidth >= 768) {
+                    statsSidebar.classList.toggle('hidden');
+                } else {
+                    // On mobile, show modal instead
+                    updateMobileStatsUI();
+                    mobileStatsModal.classList.remove('hidden');
+                }
+            }
+            
+            // Update statistics UI
+            function updateStatsUI() {
+                document.getElementById('x-wins').textContent = stats.xWins;
+                document.getElementById('o-wins').textContent = stats.oWins;
+                document.getElementById('draws').textContent = stats.draws;
+                document.getElementById('x-wins-count').textContent = stats.xWins;
+                document.getElementById('o-wins-count').textContent = stats.oWins;
+                document.getElementById('draws-count').textContent = stats.draws;
+            }
+            
+            // Update mobile statistics UI
+            function updateMobileStatsUI() {
+                document.getElementById('mobile-x-wins').textContent = stats.xWins;
+                document.getElementById('mobile-o-wins').textContent = stats.oWins;
+                document.getElementById('mobile-draws').textContent = stats.draws;
+                document.getElementById('mobile-x-wins-count').textContent = stats.xWins;
+                document.getElementById('mobile-o-wins-count').textContent = stats.oWins;
+                document.getElementById('mobile-draws-count').textContent = stats.draws;
+            }
+            
+            // Save stats to localStorage
+            function saveStats() {
+                localStorage.setItem('ticTacToeStats', JSON.stringify(stats));
+            }
+            
+            // Reset statistics
+            function resetStatistics() {
+                stats = {
+                    xWins: 0,
+                    oWins: 0,
+                    draws: 0
+                };
+                saveStats();
+                updateStatsUI();
+                updateMobileStatsUI();
+            }
+            
+            // Event listeners
+            resetButton.addEventListener('click', resetGame);
+            themeButton.addEventListener('click', toggleDarkMode);
+            statsButton.addEventListener('click', toggleStatsSidebar);
+            playAgainButton.addEventListener('click', () => {
+                winnerModal.classList.add('hidden');
+                resetGame();
+            });
+            closeModalButton.addEventListener('click', () => {
+                winnerModal.classList.add('hidden');
+            });
+            resetStatsButton.addEventListener('click', resetStatistics);
+            closeStatsModalButton.addEventListener('click', () => {
+                mobileStatsModal.classList.add('hidden');
+            });
+            resetStatsModalButton.addEventListener('click', () => {
+                resetStatistics();
+                mobileStatsModal.classList.add('hidden');
+            });
+            
+            // Initialize the game
+            initializeBoard();
+        });
+    </script>
+</body>
+</html>
